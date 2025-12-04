@@ -1,11 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
 import { mockUsers } from '../data/mockData'
 
 const Wallets = () => {
   const navigate = useNavigate()
-  const [users, setUsers] = useState(mockUsers)
+  
+  // Get users with wallet balance updates from localStorage
+  const getUsersWithWalletUpdates = () => {
+    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    const statusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    return mockUsers.map(user => ({
+      ...user,
+      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance,
+      status: statusUpdates[user.id] || user.status
+    }))
+  }
+  
+  const [users, setUsers] = useState(getUsersWithWalletUpdates())
   const [searchTerm, setSearchTerm] = useState('')
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
@@ -15,6 +27,11 @@ const Wallets = () => {
     notes: ''
   })
   const [errors, setErrors] = useState({})
+  
+  // Refresh users when component mounts
+  useEffect(() => {
+    setUsers(getUsersWithWalletUpdates())
+  }, [])
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -75,15 +92,39 @@ const Wallets = () => {
       return
     }
 
-    // Update user balance
+    // Update user balance in state
     setUsers(prev => prev.map(user =>
       user.id === selectedUser.id
         ? { ...user, walletBalance: newBalance }
         : user
     ))
 
+    // Persist to localStorage
+    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    walletUpdates[selectedUser.id] = newBalance
+    localStorage.setItem('walletBalanceUpdates', JSON.stringify(walletUpdates))
+    
+    // Store transaction history
+    const transactions = JSON.parse(localStorage.getItem('walletTransactions') || '[]')
+    transactions.push({
+      userId: selectedUser.id,
+      userName: selectedUser.name,
+      type: adjustmentData.type,
+      amount: amount,
+      notes: adjustmentData.notes,
+      date: new Date().toISOString(),
+      previousBalance: selectedUser.walletBalance,
+      newBalance: newBalance
+    })
+    localStorage.setItem('walletTransactions', JSON.stringify(transactions))
+
     setShowAdjustModal(false)
     setSelectedUser(null)
+    
+    // Show success message
+    setTimeout(() => {
+      alert(`Wallet balance ${adjustmentData.type === 'credit' ? 'credited' : 'debited'} successfully!\nNew Balance: $${newBalance.toFixed(2)}`)
+    }, 100)
   }
 
   return (

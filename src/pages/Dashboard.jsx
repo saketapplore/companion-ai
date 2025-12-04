@@ -6,9 +6,21 @@ const Dashboard = () => {
   const navigate = useNavigate()
   const adminEmail = localStorage.getItem('adminEmail') || 'admin@example.com'
 
-  const totalUsers = mockUsers.length
-  const activeUsers = mockUsers.filter(u => u.status === 'active').length
-  const totalBalance = mockUsers.reduce((sum, u) => sum + u.walletBalance, 0)
+  // Apply updates from localStorage
+  const getUsersWithUpdates = () => {
+    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    return mockUsers.map(user => ({
+      ...user,
+      status: userStatusUpdates[user.id] || user.status,
+      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance
+    }))
+  }
+  
+  const usersWithUpdates = getUsersWithUpdates()
+  const totalUsers = usersWithUpdates.length
+  const activeUsers = usersWithUpdates.filter(u => u.status === 'active').length
+  const totalBalance = usersWithUpdates.reduce((sum, u) => sum + u.walletBalance, 0)
   const totalTransactions = mockTransactions.length
 
   return (

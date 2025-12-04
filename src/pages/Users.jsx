@@ -1,11 +1,23 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
 import { mockUsers } from '../data/mockData'
 
 const Users = () => {
   const navigate = useNavigate()
-  const [users, setUsers] = useState(mockUsers)
+  
+  // Apply status and wallet updates from localStorage
+  const getUsersWithUpdates = () => {
+    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    return mockUsers.map(user => ({
+      ...user,
+      status: userStatusUpdates[user.id] || user.status,
+      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance
+    }))
+  }
+  
+  const [users, setUsers] = useState(getUsersWithUpdates())
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     gender: '',
@@ -13,6 +25,21 @@ const Users = () => {
     location: '',
     status: ''
   })
+  
+  // Refresh users when component mounts or when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setUsers(getUsersWithUpdates())
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    // Also check on mount
+    setUsers(getUsersWithUpdates())
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   // Filter and search logic
   const filteredUsers = useMemo(() => {

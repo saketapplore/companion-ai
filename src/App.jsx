@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import AdminLogin from './pages/AdminLogin'
+import AdminLogin from './pages/AdminLoginNew'
 import ForgotPassword from './pages/ForgotPassword'
 import ChangePassword from './pages/ChangePassword'
 import Dashboard from './pages/Dashboard'

@@ -70,6 +70,9 @@ A modern, secure admin panel for managing the AI Companion platform, built with 
 - **React 18** - Modern React with hooks
 - **React Router DOM** - Client-side routing
 - **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - High-quality React components
+- **Radix UI** - Accessible component primitives
+- **Lucide React** - Beautiful icon library
 - **Vite** - Fast build tool and dev server
 - **React Hook Form** - Form validation (optional)
 - **Axios** - HTTP client for API calls
@@ -78,6 +81,22 @@ A modern, secure admin panel for managing the AI Companion platform, built with 
 
 - **Headings**: Poppins (font-weight: 600)
 - **Body Text**: Montserrat
+
+## Component Library
+
+The admin panel uses **shadcn/ui** for consistent, accessible, and beautiful UI components:
+- Button - Multiple variants (default, outline, ghost, destructive)
+- Card - Structured content containers
+- Input - Form inputs with validation states
+- Label - Accessible form labels
+- Badge - Status indicators and tags
+- Tabs - Tab navigation components
+
+All components are built with:
+- **Radix UI** primitives for accessibility
+- **Tailwind CSS** for styling
+- **Class Variance Authority** for variant management
+- Full TypeScript support (converted to JavaScript)
 
 ## Getting Started
 

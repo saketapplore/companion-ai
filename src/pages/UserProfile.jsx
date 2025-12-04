@@ -11,22 +11,56 @@ const UserProfile = () => {
   const [showActivateModal, setShowActivateModal] = useState(false)
 
   useEffect(() => {
+    // Get user status and wallet updates from localStorage
+    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    
     const foundUser = mockUsers.find(u => u.id === parseInt(userId))
     if (foundUser) {
-      setUser(foundUser)
+      // Apply any updates from localStorage
+      const updatedUser = {
+        ...foundUser,
+        status: userStatusUpdates[userId] || foundUser.status,
+        walletBalance: walletUpdates[userId] !== undefined ? walletUpdates[userId] : foundUser.walletBalance
+      }
+      setUser(updatedUser)
     } else {
       navigate('/admin/users')
     }
   }, [userId, navigate])
 
   const handleSuspend = () => {
+    // Update local state
     setUser(prev => ({ ...prev, status: 'suspended' }))
+    
+    // Persist to localStorage
+    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    userStatusUpdates[userId] = 'suspended'
+    localStorage.setItem('userStatusUpdates', JSON.stringify(userStatusUpdates))
+    
     setShowSuspendModal(false)
+    
+    // Show success message
+    setTimeout(() => {
+      alert('User account has been suspended successfully')
+    }, 100)
   }
 
   const handleActivate = () => {
+    // Update local state
     setUser(prev => ({ ...prev, status: 'active' }))
+    
+    // Persist to localStorage
+    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
+    userStatusUpdates[userId] = 'active'
+    localStorage.setItem('userStatusUpdates', JSON.stringify(userStatusUpdates))
+    
     setShowActivateModal(false)
+    
+    // Show success message
+    setTimeout(() => {
+      alert('User account has been activated successfully')
+    }, 100)
   }
 
   if (!user) {

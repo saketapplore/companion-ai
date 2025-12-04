@@ -79,11 +79,22 @@ const ChangePassword = () => {
     setErrors({})
     
     try {
-      // API call would go here
-      // const response = await changeAdminPassword(formData)
+      // Verify current password matches stored credentials
+      const storedPassword = localStorage.getItem('adminPassword') || 'applore123'
+      
+      if (formData.currentPassword !== storedPassword) {
+        setErrors({
+          currentPassword: 'Current password is incorrect'
+        })
+        setIsLoading(false)
+        return
+      }
       
       // Simulating API call
       await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Update password in localStorage
+      localStorage.setItem('adminPassword', formData.newPassword)
       
       setIsSuccess(true)
       
