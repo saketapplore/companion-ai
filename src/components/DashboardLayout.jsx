@@ -6,11 +6,11 @@ const DashboardLayout = ({ children }) => {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [expandedSections, setExpandedSections] = useState({
-    userManagement: true,
-    walletPayment: true,
-    aiCompanion: true,
-    reporting: true,
-    integrations: true
+    userManagement: false,
+    walletPayment: false,
+    aiCompanion: false,
+    reporting: false,
+    integrations: false
   })
 
   const handleLogout = () => {
@@ -19,10 +19,10 @@ const DashboardLayout = ({ children }) => {
     navigate('/admin/login')
   }
 
-  const toggleSection = (section) => {
+  const toggleSection = (sectionId) => {
     setExpandedSections(prev => ({
       ...prev,
-      [section]: !prev[section]
+      [sectionId]: !prev[sectionId]
     }))
   }
 

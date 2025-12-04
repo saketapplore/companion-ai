@@ -230,3 +230,5 @@ const MinutePricing = () => {
 
 export default MinutePricing
 
+
+
