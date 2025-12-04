@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  background-color: #f5f5f5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+}
+
+/* Consistent input styling */
+@layer components {
+  .input-field {
+    @apply w-full px-4 py-3 font-montserrat text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  .input-field:disabled {
+    @apply bg-gray-100 cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply w-full py-3 bg-blue-600 text-white font-montserrat font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-100 text-gray-700 font-montserrat font-medium rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-200;
+  }
+  
+  .error-message {
+    @apply text-red-500 text-xs font-montserrat mt-1;
+  }
+  
+  .success-message {
+    @apply text-green-500 text-xs font-montserrat mt-1;
+  }
+}
+
