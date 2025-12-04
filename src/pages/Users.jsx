@@ -10,7 +10,12 @@ const Users = () => {
   const getUsersWithUpdates = () => {
     const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
     const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    return mockUsers.map(user => ({
+    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
+    
+    // Combine mock users with custom users
+    const allUsers = [...mockUsers, ...customUsers]
+    
+    return allUsers.map(user => ({
       ...user,
       status: userStatusUpdates[user.id] || user.status,
       walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance
@@ -25,6 +30,17 @@ const Users = () => {
     location: '',
     status: ''
   })
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    mobile: '',
+    gender: '',
+    age: '',
+    location: '',
+    status: 'active'
+  })
+  const [addUserErrors, setAddUserErrors] = useState({})
   
   // Refresh users when component mounts or when localStorage changes
   useEffect(() => {
@@ -81,6 +97,106 @@ const Users = () => {
     })
   }
 
+  const validateNewUser = () => {
+    const errors = {}
+    
+    if (!newUser.name.trim()) {
+      errors.name = 'Name is required'
+    }
+    
+    if (!newUser.email.trim()) {
+      errors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(newUser.email)) {
+      errors.email = 'Email is invalid'
+    } else if (users.some(u => u.email === newUser.email)) {
+      errors.email = 'Email already exists'
+    }
+    
+    if (!newUser.mobile.trim()) {
+      errors.mobile = 'Mobile number is required'
+    }
+    
+    if (!newUser.gender) {
+      errors.gender = 'Gender is required'
+    }
+    
+    if (!newUser.age) {
+      errors.age = 'Age is required'
+    } else if (newUser.age < 18 || newUser.age > 100) {
+      errors.age = 'Age must be between 18 and 100'
+    }
+    
+    if (!newUser.location.trim()) {
+      errors.location = 'Location is required'
+    }
+    
+    setAddUserErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleAddUser = () => {
+    if (!validateNewUser()) {
+      return
+    }
+
+    // Create new user object
+    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
+    const newId = Math.max(...users.map(u => u.id), 0) + 1
+    
+    const userToAdd = {
+      id: newId,
+      name: newUser.name.trim(),
+      email: newUser.email.trim(),
+      mobile: newUser.mobile.trim(),
+      gender: newUser.gender,
+      age: parseInt(newUser.age),
+      location: newUser.location.trim(),
+      registrationDate: new Date().toISOString().split('T')[0],
+      status: 'active',
+      walletBalance: 0,
+      totalConversations: 0,
+      lastActive: new Date().toISOString().split('T')[0]
+    }
+
+    // Add to custom users in localStorage
+    customUsers.push(userToAdd)
+    localStorage.setItem('customUsers', JSON.stringify(customUsers))
+
+    // Update state
+    setUsers(getUsersWithUpdates())
+    
+    // Reset form
+    setNewUser({
+      name: '',
+      email: '',
+      mobile: '',
+      gender: '',
+      age: '',
+      location: '',
+      status: 'active'
+    })
+    setAddUserErrors({})
+    setShowAddUserModal(false)
+    
+    // Show success message
+    setTimeout(() => {
+      alert(`User "${userToAdd.name}" has been added successfully!`)
+    }, 100)
+  }
+
+  const handleNewUserChange = (field, value) => {
+    setNewUser(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    if (addUserErrors[field]) {
+      setAddUserErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }))
+    }
+  }
+
   const getStatusBadge = (status) => {
     if (status === 'active') {
       return 'bg-green-100 text-green-800'
@@ -94,13 +210,24 @@ const Users = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-3xl font-poppins font-semibold text-gray-800 mb-2">
-            User Management
-          </h2>
-          <p className="text-sm font-montserrat text-gray-600">
-            View and manage all registered users
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-poppins font-semibold text-gray-800 mb-2">
+              User Management
+            </h2>
+            <p className="text-sm font-montserrat text-gray-600">
+              View and manage all registered users
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddUserModal(true)}
+            className="px-6 py-3 bg-blue-600 text-white text-sm font-montserrat font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add User
+          </button>
         </div>
 
         {/* Search and Filters */}
@@ -301,11 +428,184 @@ const Users = () => {
           <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
             <p className="text-xs font-montserrat text-purple-700 mb-1">Total Wallet Balance</p>
             <p className="text-2xl font-poppins font-semibold text-purple-900">
-              ${users.reduce((sum, u) => sum + u.walletBalance, 0).toFixed(2)}
+              ₹{users.reduce((sum, u) => sum + u.walletBalance, 0).toFixed(2)}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-poppins font-semibold text-gray-800">
+                  Add New User
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowAddUserModal(false)
+                    setNewUser({
+                      name: '',
+                      email: '',
+                      mobile: '',
+                      gender: '',
+                      age: '',
+                      location: '',
+                      status: 'active'
+                    })
+                    setAddUserErrors({})
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Name */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.name}
+                    onChange={(e) => handleNewUserChange('name', e.target.value)}
+                    className="input-field"
+                    placeholder="Enter full name"
+                  />
+                  {addUserErrors.name && (
+                    <p className="error-message">{addUserErrors.name}</p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Email Address *
+                  </label>
+                  <input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => handleNewUserChange('email', e.target.value)}
+                    className="input-field"
+                    placeholder="user@example.com"
+                  />
+                  {addUserErrors.email && (
+                    <p className="error-message">{addUserErrors.email}</p>
+                  )}
+                </div>
+
+                {/* Mobile */}
+                <div>
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Mobile Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={newUser.mobile}
+                    onChange={(e) => handleNewUserChange('mobile', e.target.value)}
+                    className="input-field"
+                    placeholder="+1 234-567-8900"
+                  />
+                  {addUserErrors.mobile && (
+                    <p className="error-message">{addUserErrors.mobile}</p>
+                  )}
+                </div>
+
+                {/* Gender */}
+                <div>
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Gender *
+                  </label>
+                  <select
+                    value={newUser.gender}
+                    onChange={(e) => handleNewUserChange('gender', e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {addUserErrors.gender && (
+                    <p className="error-message">{addUserErrors.gender}</p>
+                  )}
+                </div>
+
+                {/* Age */}
+                <div>
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Age *
+                  </label>
+                  <input
+                    type="number"
+                    min="18"
+                    max="100"
+                    value={newUser.age}
+                    onChange={(e) => handleNewUserChange('age', e.target.value)}
+                    className="input-field"
+                    placeholder="Enter age"
+                  />
+                  {addUserErrors.age && (
+                    <p className="error-message">{addUserErrors.age}</p>
+                  )}
+                </div>
+
+                {/* Location */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.location}
+                    onChange={(e) => handleNewUserChange('location', e.target.value)}
+                    className="input-field"
+                    placeholder="City, Country"
+                  />
+                  {addUserErrors.location && (
+                    <p className="error-message">{addUserErrors.location}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleAddUser}
+                  className="flex-1 py-3 bg-blue-600 text-white text-sm font-montserrat font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Add User
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddUserModal(false)
+                    setNewUser({
+                      name: '',
+                      email: '',
+                      mobile: '',
+                      gender: '',
+                      age: '',
+                      location: '',
+                      status: 'active'
+                    })
+                    setAddUserErrors({})
+                  }}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 text-sm font-montserrat font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

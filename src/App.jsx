@@ -76,11 +76,11 @@ function App() {
       } />
       
       {/* Third-Party Integrations Routes */}
-      <Route path="/admin/integrations" element={
+      {/* <Route path="/admin/integrations" element={
         <ProtectedRoute>
           <Integrations />
         </ProtectedRoute>
-      } />
+      } /> */}
       
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/admin/login" replace />} />

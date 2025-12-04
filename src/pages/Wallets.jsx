@@ -123,7 +123,7 @@ const Wallets = () => {
     
     // Show success message
     setTimeout(() => {
-      alert(`Wallet balance ${adjustmentData.type === 'credit' ? 'credited' : 'debited'} successfully!\nNew Balance: $${newBalance.toFixed(2)}`)
+      alert(`Wallet balance ${adjustmentData.type === 'credit' ? 'credited' : 'debited'} successfully!\nNew Balance: ₹${newBalance.toFixed(2)}`)
     }, 100)
   }
 
@@ -149,7 +149,7 @@ const Wallets = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-4xl font-poppins font-semibold">${totalBalance.toFixed(2)}</p>
+              <p className="text-4xl font-poppins font-semibold">₹{totalBalance.toFixed(2)}</p>
           </div>
 
           <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
@@ -171,8 +171,8 @@ const Wallets = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
             </div>
-            <p className="text-4xl font-poppins font-semibold">
-              ${(totalBalance / users.length).toFixed(2)}
+              <p className="text-4xl font-poppins font-semibold">
+                ₹{(totalBalance / users.length).toFixed(2)}
             </p>
           </div>
         </div>
@@ -254,7 +254,7 @@ const Wallets = () => {
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-lg font-poppins font-semibold text-gray-800">
-                        ${user.walletBalance.toFixed(2)}
+                        ₹{user.walletBalance.toFixed(2)}
                       </p>
                     </td>
                     <td className="px-6 py-4">
@@ -286,7 +286,7 @@ const Wallets = () => {
                 <strong>{selectedUser.name}</strong>
               </p>
               <p className="text-xs font-montserrat text-blue-700 mt-1">
-                Current Balance: <strong>${selectedUser.walletBalance.toFixed(2)}</strong>
+                Current Balance: <strong>₹{selectedUser.walletBalance.toFixed(2)}</strong>
               </p>
             </div>
 
@@ -323,9 +323,9 @@ const Wallets = () => {
               </div>
 
               {/* Amount */}
-              <div>
-                <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
-                  Amount ($)
+            <div>
+              <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
+                Amount (₹)
                 </label>
                 <input
                   type="number"
@@ -363,7 +363,7 @@ const Wallets = () => {
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <p className="text-xs font-montserrat text-gray-600 mb-1">New Balance Preview:</p>
                   <p className="text-lg font-poppins font-semibold text-gray-800">
-                    ${adjustmentData.type === 'credit'
+                    ₹{adjustmentData.type === 'credit'
                       ? (selectedUser.walletBalance + parseFloat(adjustmentData.amount || 0)).toFixed(2)
                       : (selectedUser.walletBalance - parseFloat(adjustmentData.amount || 0)).toFixed(2)
                     }

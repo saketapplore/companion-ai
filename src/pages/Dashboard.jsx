@@ -84,7 +84,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-sm font-montserrat text-gray-600">Total Balance</p>
-                <p className="text-2xl font-poppins font-semibold text-gray-800">${totalBalance.toFixed(2)}</p>
+                <p className="text-2xl font-poppins font-semibold text-gray-800">₹{totalBalance.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@ const Dashboard = () => {
                 <p className={`text-sm font-montserrat font-semibold ${
                   txn.amount > 0 ? 'text-green-600' : 'text-gray-800'
                 }`}>
-                  {txn.amount > 0 ? '+' : ''}{txn.amount < 0 ? '-' : ''}${Math.abs(txn.amount).toFixed(2)}
+                  {txn.amount > 0 ? '+' : ''}{txn.amount < 0 ? '-' : ''}₹{Math.abs(txn.amount).toFixed(2)}
                 </p>
               </div>
             ))}

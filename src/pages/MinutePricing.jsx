@@ -92,7 +92,7 @@ const MinutePricing = () => {
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-montserrat text-gray-600 mb-1">Avg Session Cost</p>
-            <p className="text-2xl font-poppins font-semibold text-gray-800">${pricingStats.averageSessionCost}</p>
+            <p className="text-2xl font-poppins font-semibold text-gray-800">₹{pricingStats.averageSessionCost}</p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-montserrat text-gray-600 mb-1">Total Minutes Sold</p>
@@ -100,7 +100,7 @@ const MinutePricing = () => {
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-montserrat text-gray-600 mb-1">Total Revenue</p>
-            <p className="text-2xl font-poppins font-semibold text-green-600">${pricingStats.totalRevenue.toLocaleString()}</p>
+            <p className="text-2xl font-poppins font-semibold text-green-600">₹{pricingStats.totalRevenue.toLocaleString()}</p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-montserrat text-gray-600 mb-1">Active Subscribers</p>
@@ -138,14 +138,14 @@ const MinutePricing = () => {
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-poppins font-bold text-gray-800">
-                      ${plan.pricePerMinute}
+                      ₹{plan.pricePerMinute}
                     </span>
                     <span className="text-sm font-montserrat text-gray-600">
                       / minute
                     </span>
                   </div>
                   <p className="text-xs font-montserrat text-gray-500 mt-1">
-                    ~${(plan.pricePerMinute * 30).toFixed(2)} for 30 min session
+                    ~₹{(plan.pricePerMinute * 30).toFixed(2)} for 30 min session
                   </p>
                 </div>
 
@@ -185,24 +185,24 @@ const MinutePricing = () => {
             {pricingPlans.map((plan) => (
               <div key={plan.id} className="space-y-3">
                 <h4 className="text-sm font-poppins font-semibold text-gray-700">
-                  {plan.name} - ${plan.pricePerMinute}/min
+                  {plan.name} - ₹{plan.pricePerMinute}/min
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm font-montserrat">
                     <span className="text-gray-600">10 minutes:</span>
-                    <span className="font-semibold text-gray-800">${(plan.pricePerMinute * 10).toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{(plan.pricePerMinute * 10).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-montserrat">
                     <span className="text-gray-600">30 minutes:</span>
-                    <span className="font-semibold text-gray-800">${(plan.pricePerMinute * 30).toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{(plan.pricePerMinute * 30).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-montserrat">
                     <span className="text-gray-600">60 minutes:</span>
-                    <span className="font-semibold text-gray-800">${(plan.pricePerMinute * 60).toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{(plan.pricePerMinute * 60).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-montserrat pt-2 border-t border-gray-200">
                     <span className="text-gray-600">120 minutes:</span>
-                    <span className="font-semibold text-blue-600">${(plan.pricePerMinute * 120).toFixed(2)}</span>
+                    <span className="font-semibold text-blue-600">₹{(plan.pricePerMinute * 120).toFixed(2)}</span>
                   </div>
                 </div>
               </div>

@@ -55,7 +55,7 @@ const Analytics = () => {
                   Sales Figures - {getTimeRangeLabel()}
                 </p>
                 <h3 className="text-4xl font-poppins font-bold">
-                  ${analytics.salesFigures[timeRange]?.toFixed(2) || '0.00'}
+                  ₹{analytics.salesFigures[timeRange]?.toFixed(2) || '0.00'}
                 </h3>
               </div>
               <div className="w-16 h-16 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
@@ -105,7 +105,7 @@ const Analytics = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <p className="text-xs font-montserrat text-gray-600 mb-1">Total Revenue</p>
             <p className="text-2xl font-poppins font-semibold text-gray-800">
-              ${analytics.salesFigures.totalRevenue.toLocaleString()}
+              ₹{analytics.salesFigures.totalRevenue.toLocaleString()}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -151,7 +151,7 @@ const Analytics = () => {
                       style={{ width: `${(data.revenue / 7000) * 100}%` }}
                     >
                       <span className="text-xs font-montserrat text-white font-semibold">
-                        ${data.revenue.toLocaleString()}
+                        ₹{data.revenue.toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -213,7 +213,7 @@ const Analytics = () => {
                     </div>
                   </div>
                   <span className="text-sm font-poppins font-semibold text-green-600">
-                    ${user.spent.toFixed(2)}
+                    ₹{user.spent.toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -272,7 +272,7 @@ const Analytics = () => {
               </p>
               <p className="text-sm font-montserrat text-green-700 mb-2">Recharges</p>
               <p className="text-lg font-poppins font-semibold text-green-900">
-                ${analytics.transactionBreakdown.recharges.amount.toLocaleString()}
+                ₹{analytics.transactionBreakdown.recharges.amount.toLocaleString()}
               </p>
             </div>
 
@@ -285,7 +285,7 @@ const Analytics = () => {
               </p>
               <p className="text-sm font-montserrat text-blue-700 mb-2">Purchases</p>
               <p className="text-lg font-poppins font-semibold text-blue-900">
-                ${analytics.transactionBreakdown.purchases.amount.toLocaleString()}
+                ₹{analytics.transactionBreakdown.purchases.amount.toLocaleString()}
               </p>
             </div>
 
@@ -298,7 +298,7 @@ const Analytics = () => {
               </p>
               <p className="text-sm font-montserrat text-orange-700 mb-2">Refunds</p>
               <p className="text-lg font-poppins font-semibold text-orange-900">
-                ${analytics.transactionBreakdown.refunds.amount.toLocaleString()}
+                ₹{analytics.transactionBreakdown.refunds.amount.toLocaleString()}
               </p>
             </div>
           </div>

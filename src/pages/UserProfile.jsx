@@ -14,8 +14,16 @@ const UserProfile = () => {
     // Get user status and wallet updates from localStorage
     const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
     const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
+    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
     
-    const foundUser = mockUsers.find(u => u.id === parseInt(userId))
+    // Search in both mockUsers and customUsers
+    let foundUser = mockUsers.find(u => u.id === parseInt(userId))
+    
+    // If not found in mockUsers, search in customUsers
+    if (!foundUser) {
+      foundUser = customUsers.find(u => u.id === parseInt(userId))
+    }
+    
     if (foundUser) {
       // Apply any updates from localStorage
       const updatedUser = {
@@ -205,7 +213,7 @@ const UserProfile = () => {
               </h4>
               <div className="text-center py-4">
                 <p className="text-4xl font-poppins font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
-                  ${user.walletBalance.toFixed(2)}
+                  ₹{user.walletBalance.toFixed(2)}
                 </p>
                 <button
                   onClick={() => navigate('/admin/wallets')}

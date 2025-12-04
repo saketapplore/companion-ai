@@ -146,15 +146,15 @@ const Transactions = () => {
           </div>
           <div className="bg-green-50 border border-green-100 rounded-lg p-4">
             <p className="text-xs font-montserrat text-green-700 mb-1">Total Recharges</p>
-            <p className="text-2xl font-poppins font-semibold text-green-900">${totalRecharges.toFixed(2)}</p>
+            <p className="text-2xl font-poppins font-semibold text-green-900">₹{totalRecharges.toFixed(2)}</p>
           </div>
           <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
             <p className="text-xs font-montserrat text-purple-700 mb-1">Total Purchases</p>
-            <p className="text-2xl font-poppins font-semibold text-purple-900">${totalPurchases.toFixed(2)}</p>
+            <p className="text-2xl font-poppins font-semibold text-purple-900">₹{totalPurchases.toFixed(2)}</p>
           </div>
           <div className="bg-orange-50 border border-orange-100 rounded-lg p-4">
             <p className="text-xs font-montserrat text-orange-700 mb-1">Transaction Volume</p>
-            <p className="text-2xl font-poppins font-semibold text-orange-900">${totalAmount.toFixed(2)}</p>
+            <p className="text-2xl font-poppins font-semibold text-orange-900">₹{totalAmount.toFixed(2)}</p>
           </div>
         </div>
 
@@ -322,7 +322,7 @@ const Transactions = () => {
                         <p className={`text-lg font-poppins font-semibold ${
                           txn.amount > 0 ? 'text-green-600' : 'text-gray-800'
                         }`}>
-                          {txn.amount > 0 ? '+' : ''}{txn.amount < 0 ? '-' : ''}${Math.abs(txn.amount).toFixed(2)}
+                          {txn.amount > 0 ? '+' : ''}{txn.amount < 0 ? '-' : ''}₹{Math.abs(txn.amount).toFixed(2)}
                         </p>
                       </td>
                       <td className="px-6 py-4">

@@ -22,7 +22,7 @@ const Integrations = () => {
       configuration: {
         apiKey: '••••••••••••••••••••sk_live_1234',
         webhookUrl: 'https://api.aicompanion.com/webhooks/stripe',
-        currency: 'USD',
+        currency: 'INR',
         testMode: false
       }
     },
