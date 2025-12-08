@@ -1,27 +1,49 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockUsers, mockTransactions } from '../data/mockData'
+import { dashboardAPI } from '../services/api'
 
 const Dashboard = () => {
   const navigate = useNavigate()
   const adminEmail = localStorage.getItem('adminEmail') || 'admin@example.com'
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    totalWalletBalance: 0,
+    totalTransactions: 0,
+    recentTransactions: []
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Apply updates from localStorage
-  const getUsersWithUpdates = () => {
-    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    return mockUsers.map(user => ({
-      ...user,
-      status: userStatusUpdates[user.id] || user.status,
-      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance
-    }))
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      setIsLoading(true)
+      const response = await dashboardAPI.getStats()
+      if (response.success && response.data) {
+        setStats({
+          totalUsers: response.data.totalUsers || 0,
+          activeUsers: response.data.activeUsers || 0,
+          totalWalletBalance: response.data.totalWalletBalance || 0,
+          totalTransactions: response.data.totalTransactions || 0,
+          recentTransactions: response.data.recentTransactions || []
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error)
+    } finally {
+      setIsLoading(false)
+    }
   }
-  
-  const usersWithUpdates = getUsersWithUpdates()
-  const totalUsers = usersWithUpdates.length
-  const activeUsers = usersWithUpdates.filter(u => u.status === 'active').length
-  const totalBalance = usersWithUpdates.reduce((sum, u) => sum + u.walletBalance, 0)
-  const totalTransactions = mockTransactions.length
+
+  const totalUsers = stats.totalUsers
+  const activeUsers = stats.activeUsers
+  const totalBalance = stats.totalWalletBalance
+  const totalTransactions = stats.totalTransactions
+  const recentTransactions = stats.recentTransactions
 
   return (
     <DashboardLayout>
@@ -217,34 +239,43 @@ const Dashboard = () => {
             </button>
           </div>
           <div className="space-y-3">
-            {mockTransactions.slice(0, 5).map(txn => (
-              <div key={txn.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    txn.type === 'recharge' ? 'bg-green-100' : 'bg-blue-100'
-                  }`}>
-                    <svg className={`w-5 h-5 ${
-                      txn.type === 'recharge' ? 'text-green-600' : 'text-blue-600'
-                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-montserrat font-medium text-gray-800">
-                      {txn.userName}
-                    </p>
-                    <p className="text-xs font-montserrat text-gray-500">
-                      {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)} • {txn.date}
-                    </p>
-                  </div>
-                </div>
-                <p className={`text-sm font-montserrat font-semibold ${
-                  txn.amount > 0 ? 'text-green-600' : 'text-gray-800'
-                }`}>
-                  {txn.amount > 0 ? '+' : ''}{txn.amount < 0 ? '-' : ''}₹{Math.abs(txn.amount).toFixed(2)}
-                </p>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+                <p className="mt-2 text-sm text-gray-500">Loading transactions...</p>
               </div>
-            ))}
+            ) : recentTransactions.length > 0 ? (
+              recentTransactions.map(txn => (
+                <div key={txn.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      txn.type === 'credit' ? 'bg-green-100' : 'bg-blue-100'
+                    }`}>
+                      <svg className={`w-5 h-5 ${
+                        txn.type === 'credit' ? 'text-green-600' : 'text-blue-600'
+                      }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-montserrat font-medium text-gray-800">
+                        {txn.userName || 'Unknown User'}
+                      </p>
+                      <p className="text-xs font-montserrat text-gray-500">
+                        {txn.type === 'credit' ? 'Credit' : 'Debit'} • {new Date(txn.date || txn.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`text-sm font-montserrat font-semibold ${
+                    txn.amount > 0 ? 'text-green-600' : 'text-gray-800'
+                  }`}>
+                    {txn.amount > 0 ? '+' : ''}₹{Math.abs(txn.amount).toFixed(2)}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-center py-8 text-sm text-gray-500">No recent transactions</p>
+            )}
           </div>
         </div>
       </div>

@@ -1,28 +1,13 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockUsers } from '../data/mockData'
+import { usersAPI } from '../services/api'
 
 const Users = () => {
   const navigate = useNavigate()
   
-  // Apply status and wallet updates from localStorage
-  const getUsersWithUpdates = () => {
-    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
-    
-    // Combine mock users with custom users
-    const allUsers = [...mockUsers, ...customUsers]
-    
-    return allUsers.map(user => ({
-      ...user,
-      status: userStatusUpdates[user.id] || user.status,
-      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance
-    }))
-  }
-  
-  const [users, setUsers] = useState(getUsersWithUpdates())
+  const [users, setUsers] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     gender: '',
@@ -34,43 +19,69 @@ const Users = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    mobile: '',
+    mobileNo: '',
     gender: '',
-    age: '',
+    ageGroup: '',
     location: '',
     status: 'active'
   })
   const [addUserErrors, setAddUserErrors] = useState({})
   
-  // Refresh users when component mounts or when localStorage changes
+  // Fetch users from API
   useEffect(() => {
-    const handleStorageChange = () => {
-      setUsers(getUsersWithUpdates())
-    }
-    
-    window.addEventListener('storage', handleStorageChange)
-    // Also check on mount
-    setUsers(getUsersWithUpdates())
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-    }
+    fetchUsers()
   }, [])
+  
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true)
+      const response = await usersAPI.getAll()
+      if (response.success && response.data?.users) {
+        // Map backend user data to frontend format
+        const mappedUsers = response.data.users.map(user => ({
+          id: user._id || user.id,
+          _id: user._id,
+          name: user.name || 'Unknown',
+          email: user.email || '',
+          mobile: user.mobileNo || '',
+          mobileNo: user.mobileNo || '',
+          gender: user.gender || '',
+          age: user.ageGroup ? parseInt(user.ageGroup.split('-')[0]) || 25 : 25,
+          ageGroup: user.ageGroup || '',
+          location: user.location || 'N/A',
+          registrationDate: user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          status: user.isActive === false ? 'suspended' : 'active',
+          isActive: user.isActive !== false,
+          walletBalance: user.walletBalance || 0,
+          minutesBalance: user.minutesBalance || 0,
+          totalConversations: user.conversationSessions?.length || 0,
+          lastActive: user.updatedAt ? new Date(user.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+        }))
+        setUsers(mappedUsers)
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      alert('Failed to load users. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Filter and search logic
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = 
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.mobile.includes(searchTerm)
+        (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (user.mobile && user.mobile.includes(searchTerm)) ||
+        (user.mobileNo && user.mobileNo.includes(searchTerm))
 
-      const matchesGender = !filters.gender || user.gender === filters.gender
+      const matchesGender = !filters.gender || user.gender?.toLowerCase() === filters.gender.toLowerCase()
       const matchesStatus = !filters.status || user.status === filters.status
-      const matchesLocation = !filters.location || user.location.toLowerCase().includes(filters.location.toLowerCase())
+      const matchesLocation = !filters.location || (user.location && user.location.toLowerCase().includes(filters.location.toLowerCase()))
       
       let matchesAge = true
-      if (filters.ageRange) {
+      if (filters.ageRange && user.age) {
         if (filters.ageRange === '18-25') matchesAge = user.age >= 18 && user.age <= 25
         else if (filters.ageRange === '26-35') matchesAge = user.age >= 26 && user.age <= 35
         else if (filters.ageRange === '36+') matchesAge = user.age >= 36
@@ -104,84 +115,65 @@ const Users = () => {
       errors.name = 'Name is required'
     }
     
-    if (!newUser.email.trim()) {
-      errors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(newUser.email)) {
-      errors.email = 'Email is invalid'
-    } else if (users.some(u => u.email === newUser.email)) {
-      errors.email = 'Email already exists'
-    }
-    
-    if (!newUser.mobile.trim()) {
-      errors.mobile = 'Mobile number is required'
+    if (!newUser.mobileNo.trim()) {
+      errors.mobileNo = 'Mobile number is required'
+    } else if (!/^\d{10}$/.test(newUser.mobileNo.replace(/\D/g, ''))) {
+      errors.mobileNo = 'Mobile number must be 10 digits'
+    } else if (users.some(u => (u.mobileNo || u.mobile) === newUser.mobileNo)) {
+      errors.mobileNo = 'Mobile number already exists'
     }
     
     if (!newUser.gender) {
       errors.gender = 'Gender is required'
     }
     
-    if (!newUser.age) {
-      errors.age = 'Age is required'
-    } else if (newUser.age < 18 || newUser.age > 100) {
-      errors.age = 'Age must be between 18 and 100'
-    }
-    
-    if (!newUser.location.trim()) {
-      errors.location = 'Location is required'
-    }
-    
     setAddUserErrors(errors)
     return Object.keys(errors).length === 0
   }
 
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!validateNewUser()) {
       return
     }
 
-    // Create new user object
-    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
-    const newId = Math.max(...users.map(u => u.id), 0) + 1
-    
-    const userToAdd = {
-      id: newId,
-      name: newUser.name.trim(),
-      email: newUser.email.trim(),
-      mobile: newUser.mobile.trim(),
-      gender: newUser.gender,
-      age: parseInt(newUser.age),
-      location: newUser.location.trim(),
-      registrationDate: new Date().toISOString().split('T')[0],
-      status: 'active',
-      walletBalance: 0,
-      totalConversations: 0,
-      lastActive: new Date().toISOString().split('T')[0]
+    try {
+      const userData = {
+        name: newUser.name.trim(),
+        mobileNo: newUser.mobileNo.replace(/\D/g, ''), // Remove non-digits
+        gender: newUser.gender,
+        ageGroup: newUser.ageGroup || '18-25',
+        isActive: newUser.status === 'active',
+        walletBalance: 0,
+        minutesBalance: 30, // Default minutes
+      }
+      
+      const response = await usersAPI.create(userData)
+      
+      if (response.success) {
+        // Refresh users list
+        await fetchUsers()
+        
+        // Reset form
+        setNewUser({
+          name: '',
+          email: '',
+          mobileNo: '',
+          gender: '',
+          ageGroup: '',
+          location: '',
+          status: 'active'
+        })
+        setAddUserErrors({})
+        setShowAddUserModal(false)
+        
+        alert(`User "${newUser.name}" has been added successfully!`)
+      } else {
+        alert(response.message || 'Failed to add user')
+      }
+    } catch (error) {
+      console.error('Error adding user:', error)
+      alert(error.response?.data?.message || 'Failed to add user. Please try again.')
     }
-
-    // Add to custom users in localStorage
-    customUsers.push(userToAdd)
-    localStorage.setItem('customUsers', JSON.stringify(customUsers))
-
-    // Update state
-    setUsers(getUsersWithUpdates())
-    
-    // Reset form
-    setNewUser({
-      name: '',
-      email: '',
-      mobile: '',
-      gender: '',
-      age: '',
-      location: '',
-      status: 'active'
-    })
-    setAddUserErrors({})
-    setShowAddUserModal(false)
-    
-    // Show success message
-    setTimeout(() => {
-      alert(`User "${userToAdd.name}" has been added successfully!`)
-    }, 100)
   }
 
   const handleNewUserChange = (field, value) => {
@@ -307,33 +299,39 @@ const Users = () => {
 
         {/* Users Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Demographics
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Registration
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading users...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Demographics
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Registration
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -345,25 +343,25 @@ const Users = () => {
                               {user.name}
                             </p>
                             <p className="text-xs font-montserrat text-gray-500">
-                              ID: {user.id}
+                              ID: {user._id || user.id}
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm font-montserrat text-gray-800">
-                          {user.email}
+                          {user.email || 'N/A'}
                         </p>
                         <p className="text-xs font-montserrat text-gray-500">
-                          {user.mobile}
+                          {user.mobileNo || user.mobile || 'N/A'}
                         </p>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm font-montserrat text-gray-800">
-                          {user.gender}, {user.age} years
+                          {user.gender || 'N/A'}{user.age ? `, ${user.age} years` : ''}
                         </p>
                         <p className="text-xs font-montserrat text-gray-500">
-                          {user.location}
+                          {user.location || 'N/A'}
                         </p>
                       </td>
                       <td className="px-6 py-4">
@@ -381,30 +379,31 @@ const Users = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          onClick={() => navigate(`/admin/users/${user.id}`)}
-                          className="text-sm font-montserrat text-blue-600 hover:text-blue-700 transition-colors"
-                        >
-                          View Details →
-                        </button>
+                <button
+                  onClick={() => navigate(`/admin/users/${user._id || user.id}`)}
+                  className="text-sm font-montserrat text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  View Details →
+                </button>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                      <p className="text-sm font-montserrat text-gray-500">
-                        No users found matching your criteria
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-12 text-center">
+                        <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <p className="text-sm font-montserrat text-gray-500">
+                          No users found matching your criteria
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards */}
@@ -449,9 +448,9 @@ const Users = () => {
                     setNewUser({
                       name: '',
                       email: '',
-                      mobile: '',
+                      mobileNo: '',
                       gender: '',
-                      age: '',
+                      ageGroup: '',
                       location: '',
                       status: 'active'
                     })
@@ -509,13 +508,13 @@ const Users = () => {
                   </label>
                   <input
                     type="tel"
-                    value={newUser.mobile}
-                    onChange={(e) => handleNewUserChange('mobile', e.target.value)}
+                    value={newUser.mobileNo}
+                    onChange={(e) => handleNewUserChange('mobileNo', e.target.value)}
                     className="input-field"
-                    placeholder="+1 234-567-8900"
+                    placeholder="9876543210"
                   />
-                  {addUserErrors.mobile && (
-                    <p className="error-message">{addUserErrors.mobile}</p>
+                  {addUserErrors.mobileNo && (
+                    <p className="error-message">{addUserErrors.mobileNo}</p>
                   )}
                 </div>
 
@@ -539,22 +538,25 @@ const Users = () => {
                   )}
                 </div>
 
-                {/* Age */}
+                {/* Age Group */}
                 <div>
                   <label className="block text-sm font-montserrat font-medium text-gray-700 mb-2">
-                    Age *
+                    Age Group *
                   </label>
-                  <input
-                    type="number"
-                    min="18"
-                    max="100"
-                    value={newUser.age}
-                    onChange={(e) => handleNewUserChange('age', e.target.value)}
+                  <select
+                    value={newUser.ageGroup}
+                    onChange={(e) => handleNewUserChange('ageGroup', e.target.value)}
                     className="input-field"
-                    placeholder="Enter age"
-                  />
-                  {addUserErrors.age && (
-                    <p className="error-message">{addUserErrors.age}</p>
+                  >
+                    <option value="">Select Age Group</option>
+                    <option value="<18">Under 18</option>
+                    <option value="18-25">18-25</option>
+                    <option value="26-35">26-35</option>
+                    <option value="36-45">36-45</option>
+                    <option value="45+">45+</option>
+                  </select>
+                  {addUserErrors.ageGroup && (
+                    <p className="error-message">{addUserErrors.ageGroup}</p>
                   )}
                 </div>
 
@@ -589,9 +591,9 @@ const Users = () => {
                     setNewUser({
                       name: '',
                       email: '',
-                      mobile: '',
+                      mobileNo: '',
                       gender: '',
-                      age: '',
+                      ageGroup: '',
                       location: '',
                       status: 'active'
                     })

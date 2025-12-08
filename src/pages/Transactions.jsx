@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockTransactions } from '../data/mockData'
+import { transactionsAPI } from '../services/api'
 
 const Transactions = () => {
-  const [transactions] = useState(mockTransactions)
+  const [transactions, setTransactions] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     type: '',
@@ -13,27 +14,45 @@ const Transactions = () => {
     amountMin: '',
     amountMax: ''
   })
+  
+  useEffect(() => {
+    fetchTransactions()
+  }, [])
+  
+  const fetchTransactions = async () => {
+    try {
+      setIsLoading(true)
+      const response = await transactionsAPI.getAll(filters)
+      if (response.success && response.data?.transactions) {
+        setTransactions(response.data.transactions)
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error)
+      alert('Failed to load transactions. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Refetch when filters change
+  useEffect(() => {
+    fetchTransactions()
+  }, [filters.type, filters.status, filters.dateFrom, filters.dateTo])
 
-  // Filter transactions
+  // Filter transactions (client-side filtering for search and amount ranges)
   const filteredTransactions = useMemo(() => {
     return transactions.filter(txn => {
       const matchesSearch = 
-        txn.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        txn.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        txn.userId.toString().includes(searchTerm)
-
-      const matchesType = !filters.type || txn.type === filters.type
-      const matchesStatus = !filters.status || txn.status === filters.status
-
-      const matchesDateFrom = !filters.dateFrom || new Date(txn.date) >= new Date(filters.dateFrom)
-      const matchesDateTo = !filters.dateTo || new Date(txn.date) <= new Date(filters.dateTo)
+        (txn.userName && txn.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (txn.transactionId && txn.transactionId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (txn.userId && txn.userId.toString().includes(searchTerm))
 
       const matchesAmountMin = !filters.amountMin || Math.abs(txn.amount) >= parseFloat(filters.amountMin)
       const matchesAmountMax = !filters.amountMax || Math.abs(txn.amount) <= parseFloat(filters.amountMax)
 
-      return matchesSearch && matchesType && matchesStatus && matchesDateFrom && matchesDateTo && matchesAmountMin && matchesAmountMax
+      return matchesSearch && matchesAmountMin && matchesAmountMax
     })
-  }, [transactions, searchTerm, filters])
+  }, [transactions, searchTerm, filters.amountMin, filters.amountMax])
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -85,8 +104,10 @@ const Transactions = () => {
 
   const getTypeStyles = (type) => {
     switch(type) {
+      case 'credit':
       case 'recharge':
         return 'bg-green-100 text-green-800'
+      case 'debit':
       case 'purchase':
         return 'bg-blue-100 text-blue-800'
       case 'refund':
@@ -94,6 +115,12 @@ const Transactions = () => {
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+  
+  const getTypeLabel = (type) => {
+    if (type === 'credit') return 'Recharge'
+    if (type === 'debit') return 'Purchase'
+    return type.charAt(0).toUpperCase() + type.slice(1)
   }
 
   const getStatusStyles = (status) => {
@@ -111,8 +138,8 @@ const Transactions = () => {
 
   // Calculate stats
   const totalAmount = filteredTransactions.reduce((sum, txn) => sum + Math.abs(txn.amount), 0)
-  const totalRecharges = filteredTransactions.filter(t => t.type === 'recharge').reduce((sum, t) => sum + t.amount, 0)
-  const totalPurchases = filteredTransactions.filter(t => t.type === 'purchase').reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const totalRecharges = filteredTransactions.filter(t => t.type === 'credit' || t.type === 'recharge').reduce((sum, t) => sum + Math.abs(t.amount), 0)
+  const totalPurchases = filteredTransactions.filter(t => t.type === 'debit' || t.type === 'purchase').reduce((sum, t) => sum + Math.abs(t.amount), 0)
 
   return (
     <DashboardLayout>
@@ -254,68 +281,78 @@ const Transactions = () => {
 
         {/* Transactions Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Transaction ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Date & Time
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Details
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((txn) => (
-                    <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-montserrat font-medium text-gray-800">
-                          {txn.transactionId}
-                        </p>
-                        <p className="text-xs font-montserrat text-gray-500">
-                          ID: {txn.id}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-montserrat text-gray-800">
-                          {new Date(txn.date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                        <p className="text-xs font-montserrat text-gray-500">
-                          {txn.time}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm font-montserrat font-medium text-gray-800">
-                          {txn.userName}
-                        </p>
-                        <p className="text-xs font-montserrat text-gray-500">
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading transactions...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Transaction ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Details
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((txn) => (
+                      <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-montserrat font-medium text-gray-800">
+                            {txn.transactionId || txn.id}
+                          </p>
+                          <p className="text-xs font-montserrat text-gray-500">
+                            ID: {txn.id}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-montserrat text-gray-800">
+                            {txn.date ? new Date(txn.date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            }) : new Date(txn.createdAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </p>
+                          <p className="text-xs font-montserrat text-gray-500">
+                            {txn.time || new Date(txn.createdAt).toLocaleTimeString()}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-montserrat font-medium text-gray-800">
+                            {txn.userName || 'Unknown User'}
+                          </p>
+                          <p className="text-xs font-montserrat text-gray-500">
                           User ID: {txn.userId}
                         </p>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-montserrat font-medium ${getTypeStyles(txn.type)}`}>
-                          {txn.type.charAt(0).toUpperCase() + txn.type.slice(1)}
+                          {getTypeLabel(txn.type)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -348,10 +385,11 @@ const Transactions = () => {
                       </p>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>

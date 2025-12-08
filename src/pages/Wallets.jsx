@@ -1,23 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockUsers } from '../data/mockData'
+import { walletAPI } from '../services/api'
 
 const Wallets = () => {
   const navigate = useNavigate()
   
-  // Get users with wallet balance updates from localStorage
-  const getUsersWithWalletUpdates = () => {
-    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    const statusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    return mockUsers.map(user => ({
-      ...user,
-      walletBalance: walletUpdates[user.id] !== undefined ? walletUpdates[user.id] : user.walletBalance,
-      status: statusUpdates[user.id] || user.status
-    }))
-  }
-  
-  const [users, setUsers] = useState(getUsersWithWalletUpdates())
+  const [wallets, setWallets] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAdjustModal, setShowAdjustModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
@@ -27,19 +17,42 @@ const Wallets = () => {
     notes: ''
   })
   const [errors, setErrors] = useState({})
+  const [isAdjusting, setIsAdjusting] = useState(false)
   
-  // Refresh users when component mounts
+  // Fetch wallets when component mounts
   useEffect(() => {
-    setUsers(getUsersWithWalletUpdates())
+    fetchWallets()
   }, [])
+  
+  const fetchWallets = async () => {
+    try {
+      setIsLoading(true)
+      const response = await walletAPI.getAllWallets({ search: searchTerm })
+      if (response.success && response.data) {
+        setWallets(response.data.wallets || [])
+      }
+    } catch (error) {
+      console.error('Error fetching wallets:', error)
+      alert('Failed to load wallets. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Refetch when search changes
+  useEffect(() => {
+    if (!isLoading) {
+      fetchWallets()
+    }
+  }, [searchTerm])
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.mobile.includes(searchTerm)
+  const filteredWallets = wallets.filter(wallet =>
+    wallet.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (wallet.email && wallet.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (wallet.mobileNo && wallet.mobileNo.includes(searchTerm))
   )
 
-  const totalBalance = users.reduce((sum, user) => sum + user.walletBalance, 0)
+  const totalBalance = wallets.reduce((sum, wallet) => sum + (wallet.walletBalance || 0), 0)
 
   const openAdjustModal = (user) => {
     setSelectedUser(user)
@@ -77,54 +90,52 @@ const Wallets = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleAdjustBalance = () => {
+  const handleAdjustBalance = async () => {
     if (!validateAdjustment()) {
       return
     }
 
     const amount = parseFloat(adjustmentData.amount)
-    const newBalance = adjustmentData.type === 'credit'
-      ? selectedUser.walletBalance + amount
-      : selectedUser.walletBalance - amount
+    const currentBalance = selectedUser.walletBalance || 0
 
-    if (newBalance < 0) {
+    if (adjustmentData.type === 'debit' && currentBalance < amount) {
       setErrors({ amount: 'Insufficient balance for debit' })
       return
     }
 
-    // Update user balance in state
-    setUsers(prev => prev.map(user =>
-      user.id === selectedUser.id
-        ? { ...user, walletBalance: newBalance }
-        : user
-    ))
-
-    // Persist to localStorage
-    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    walletUpdates[selectedUser.id] = newBalance
-    localStorage.setItem('walletBalanceUpdates', JSON.stringify(walletUpdates))
-    
-    // Store transaction history
-    const transactions = JSON.parse(localStorage.getItem('walletTransactions') || '[]')
-    transactions.push({
-      userId: selectedUser.id,
-      userName: selectedUser.name,
-      type: adjustmentData.type,
-      amount: amount,
-      notes: adjustmentData.notes,
-      date: new Date().toISOString(),
-      previousBalance: selectedUser.walletBalance,
-      newBalance: newBalance
-    })
-    localStorage.setItem('walletTransactions', JSON.stringify(transactions))
-
-    setShowAdjustModal(false)
-    setSelectedUser(null)
-    
-    // Show success message
-    setTimeout(() => {
-      alert(`Wallet balance ${adjustmentData.type === 'credit' ? 'credited' : 'debited'} successfully!\nNew Balance: ₹${newBalance.toFixed(2)}`)
-    }, 100)
+    try {
+      setIsAdjusting(true)
+      const response = await walletAPI.adjustBalance(
+        selectedUser.userId || selectedUser.id,
+        amount,
+        adjustmentData.type,
+        adjustmentData.notes
+      )
+      
+      if (response.success) {
+        // Refresh wallets
+        await fetchWallets()
+        
+        // Close modal and reset
+        setShowAdjustModal(false)
+        setAdjustmentData({
+          type: 'credit',
+          amount: '',
+          notes: ''
+        })
+        setSelectedUser(null)
+        setErrors({})
+        
+        alert(`Wallet balance adjusted successfully!`)
+      } else {
+        alert(response.message || 'Failed to adjust balance')
+      }
+    } catch (error) {
+      console.error('Error adjusting balance:', error)
+      alert(error.response?.data?.message || 'Failed to adjust balance. Please try again.')
+    } finally {
+      setIsAdjusting(false)
+    }
   }
 
   return (
@@ -160,7 +171,7 @@ const Wallets = () => {
               </svg>
             </div>
             <p className="text-4xl font-poppins font-semibold">
-              {users.filter(u => u.status === 'active').length}
+              {wallets.filter(w => w.status === 'active').length}
             </p>
           </div>
 
@@ -172,7 +183,7 @@ const Wallets = () => {
               </svg>
             </div>
               <p className="text-4xl font-poppins font-semibold">
-                ₹{(totalBalance / users.length).toFixed(2)}
+                ₹{wallets.length > 0 ? (totalBalance / wallets.length).toFixed(2) : '0.00'}
             </p>
           </div>
         </div>
@@ -192,84 +203,101 @@ const Wallets = () => {
             </svg>
           </div>
           <p className="text-sm font-montserrat text-gray-600 mt-3">
-            Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{users.length}</span> wallets
+            Showing <span className="font-semibold">{filteredWallets.length}</span> of <span className="font-semibold">{wallets.length}</span> wallets
           </p>
         </div>
 
         {/* Wallets Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Wallet Balance
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-poppins font-semibold">
-                          {user.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-montserrat font-semibold text-gray-800">
-                            {user.name}
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading wallets...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Wallet Balance
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-montserrat font-semibold text-gray-700 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredWallets.length > 0 ? (
+                    filteredWallets.map((wallet) => (
+                      <tr key={wallet.id || wallet.userId} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-poppins font-semibold">
+                              {wallet.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-montserrat font-semibold text-gray-800">
+                                {wallet.name}
+                              </p>
+                              <p className="text-xs font-montserrat text-gray-500">
+                                ID: {wallet.userId || wallet.id}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-montserrat text-gray-800">
+                            {wallet.email || 'N/A'}
                           </p>
                           <p className="text-xs font-montserrat text-gray-500">
-                            ID: {user.id}
+                            {wallet.mobileNo || 'N/A'}
                           </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-montserrat text-gray-800">
-                        {user.email}
-                      </p>
-                      <p className="text-xs font-montserrat text-gray-500">
-                        {user.mobile}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-montserrat font-medium ${
-                        user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-lg font-poppins font-semibold text-gray-800">
-                        ₹{user.walletBalance.toFixed(2)}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => openAdjustModal(user)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-montserrat font-medium ${
+                            wallet.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {wallet.status.charAt(0).toUpperCase() + wallet.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-lg font-poppins font-semibold text-gray-800">
+                            ₹{(wallet.walletBalance || 0).toFixed(2)}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                        onClick={() => openAdjustModal(wallet)}
                         className="text-sm font-montserrat text-blue-600 hover:text-blue-700 transition-colors"
                       >
                         Adjust Balance
                       </button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-12 text-center">
+                        <p className="text-sm font-montserrat text-gray-500">
+                          No wallets found
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
@@ -286,7 +314,7 @@ const Wallets = () => {
                 <strong>{selectedUser.name}</strong>
               </p>
               <p className="text-xs font-montserrat text-blue-700 mt-1">
-                Current Balance: <strong>₹{selectedUser.walletBalance.toFixed(2)}</strong>
+                Current Balance: <strong>₹{(selectedUser.walletBalance || 0).toFixed(2)}</strong>
               </p>
             </div>
 
@@ -364,8 +392,8 @@ const Wallets = () => {
                   <p className="text-xs font-montserrat text-gray-600 mb-1">New Balance Preview:</p>
                   <p className="text-lg font-poppins font-semibold text-gray-800">
                     ₹{adjustmentData.type === 'credit'
-                      ? (selectedUser.walletBalance + parseFloat(adjustmentData.amount || 0)).toFixed(2)
-                      : (selectedUser.walletBalance - parseFloat(adjustmentData.amount || 0)).toFixed(2)
+                      ? ((selectedUser.walletBalance || 0) + parseFloat(adjustmentData.amount || 0)).toFixed(2)
+                      : ((selectedUser.walletBalance || 0) - parseFloat(adjustmentData.amount || 0)).toFixed(2)
                     }
                   </p>
                 </div>
@@ -375,13 +403,14 @@ const Wallets = () => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleAdjustBalance}
-                className={`flex-1 py-2 text-white text-sm font-montserrat rounded-lg transition-colors ${
+                disabled={isAdjusting}
+                className={`flex-1 py-2 text-white text-sm font-montserrat rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   adjustmentData.type === 'credit'
                     ? 'bg-green-500 hover:bg-green-600'
                     : 'bg-red-500 hover:bg-red-600'
                 }`}
               >
-                Confirm Adjustment
+                {isAdjusting ? 'Processing...' : 'Confirm Adjustment'}
               </button>
               <button
                 onClick={() => setShowAdjustModal(false)}

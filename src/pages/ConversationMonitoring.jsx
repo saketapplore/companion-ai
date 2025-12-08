@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockConversations, mockUsers } from '../data/mockData'
+import { conversationsAPI } from '../services/api'
 
 const ConversationMonitoring = () => {
   const navigate = useNavigate()
-  const [conversations] = useState(mockConversations)
+  const [conversations, setConversations] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFilters] = useState({
     sentiment: '',
@@ -16,27 +17,46 @@ const ConversationMonitoring = () => {
     minQuality: ''
   })
   const [selectedConversation, setSelectedConversation] = useState(null)
+  
+  useEffect(() => {
+    fetchConversations()
+  }, [])
+  
+  const fetchConversations = async () => {
+    try {
+      setIsLoading(true)
+      const response = await conversationsAPI.getAll(filters)
+      if (response.success && response.data?.conversations) {
+        setConversations(response.data.conversations)
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error)
+      alert('Failed to load conversations. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  // Refetch when date filters change
+  useEffect(() => {
+    if (!isLoading) {
+      fetchConversations()
+    }
+  }, [filters.dateFrom, filters.dateTo])
 
-  // Filter conversations
+  // Filter conversations (client-side for search and duration/quality)
   const filteredConversations = useMemo(() => {
     return conversations.filter(conv => {
       const matchesSearch = 
-        conv.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.companionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.topics.some(topic => topic.toLowerCase().includes(searchTerm.toLowerCase()))
+        (conv.userName && conv.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (conv.summary && conv.summary.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      const matchesSentiment = !filters.sentiment || conv.sentiment === filters.sentiment
-      const matchesDateFrom = !filters.dateFrom || new Date(conv.date) >= new Date(filters.dateFrom)
-      const matchesDateTo = !filters.dateTo || new Date(conv.date) <= new Date(filters.dateTo)
-      const matchesMinDuration = !filters.minDuration || conv.duration >= parseFloat(filters.minDuration)
-      const matchesMaxDuration = !filters.maxDuration || conv.duration <= parseFloat(filters.maxDuration)
-      const matchesMinQuality = !filters.minQuality || conv.qualityScore >= parseFloat(filters.minQuality)
+      const matchesMinDuration = !filters.minDuration || (conv.duration || conv.durationSeconds || 0) >= parseFloat(filters.minDuration)
+      const matchesMaxDuration = !filters.maxDuration || (conv.duration || conv.durationSeconds || 0) <= parseFloat(filters.maxDuration)
 
-      return matchesSearch && matchesSentiment && matchesDateFrom && matchesDateTo && 
-             matchesMinDuration && matchesMaxDuration && matchesMinQuality
+      return matchesSearch && matchesMinDuration && matchesMaxDuration
     })
-  }, [conversations, searchTerm, filters])
+  }, [conversations, searchTerm, filters.minDuration, filters.maxDuration])
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -77,7 +97,7 @@ const ConversationMonitoring = () => {
   }
 
   // Calculate stats
-  const avgDuration = filteredConversations.reduce((sum, c) => sum + c.duration, 0) / filteredConversations.length || 0
+  const avgDuration = filteredConversations.reduce((sum, c) => sum + (c.duration || c.durationSeconds || 0), 0) / filteredConversations.length || 0
   const avgQuality = filteredConversations.reduce((sum, c) => sum + c.qualityScore, 0) / filteredConversations.length || 0
   const positiveCount = filteredConversations.filter(c => c.sentiment === 'positive').length
 
@@ -223,78 +243,79 @@ const ConversationMonitoring = () => {
 
         {/* Conversations List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="divide-y divide-gray-200">
-            {filteredConversations.length > 0 ? (
-              filteredConversations.map((conv) => (
-                <div key={conv.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white font-poppins font-semibold text-lg">
-                        {conv.companionName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="text-lg font-poppins font-semibold text-gray-800">
-                            {conv.userName} & {conv.companionName}
-                          </h3>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-montserrat font-medium ${getSentimentBadge(conv.sentiment)}`}>
-                            {conv.sentiment.charAt(0).toUpperCase() + conv.sentiment.slice(1)}
-                          </span>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+              <p className="mt-2 text-sm text-gray-500">Loading conversations...</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredConversations.length > 0 ? (
+                filteredConversations.map((conv) => (
+                  <div key={conv.id || conv._id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center text-white font-poppins font-semibold text-lg">
+                          {(conv.userName || 'U').charAt(0)}
                         </div>
-                        <div className="flex items-center gap-4 text-xs font-montserrat text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {new Date(conv.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {conv.duration} minutes
-                          </span>
-                          <span className={`flex items-center gap-1 font-semibold ${getQualityColor(conv.qualityScore)}`}>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
-                            {conv.qualityScore}/10
-                          </span>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <h3 className="text-lg font-poppins font-semibold text-gray-800">
+                              {conv.userName || 'Unknown User'}
+                            </h3>
+                            {conv.isComplete && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-montserrat font-medium bg-green-100 text-green-800">
+                                Complete
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs font-montserrat text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {conv.date ? new Date(conv.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : new Date(conv.startedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {conv.durationMinutes || Math.round((conv.durationSeconds || 0) / 60)} minutes
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {conv.language || 'en-IN'}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                      <button
+                        onClick={() => setSelectedConversation(conv)}
+                        className="text-sm font-montserrat text-blue-600 hover:text-blue-700 transition-colors"
+                      >
+                        View Details →
+                      </button>
                     </div>
-                    <button
-                      onClick={() => setSelectedConversation(conv)}
-                      className="text-sm font-montserrat text-blue-600 hover:text-blue-700 transition-colors"
-                    >
-                      View Details →
-                    </button>
-                  </div>
 
-                  <p className="text-sm font-montserrat text-gray-700 mb-3 leading-relaxed">
-                    {conv.summary}
+                    <p className="text-sm font-montserrat text-gray-700 mb-3 leading-relaxed">
+                      {conv.summary || 'No summary available'}
+                    </p>
+
+                    {conv.transcript && conv.transcript.length > 0 && (
+                      <div className="text-xs font-montserrat text-gray-500 mb-2">
+                        {conv.transcript.length} messages
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="p-12 text-center">
+                  <p className="text-sm font-montserrat text-gray-500">
+                    No conversations found
                   </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {conv.topics.map((topic, idx) => (
-                      <span key={idx} className="inline-flex items-center px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-montserrat">
-                        {topic}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <p className="text-sm font-montserrat text-gray-500">
-                  No conversations found matching your criteria
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

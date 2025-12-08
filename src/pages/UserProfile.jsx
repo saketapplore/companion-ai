@@ -1,81 +1,98 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
-import { mockUsers } from '../data/mockData'
+import { usersAPI } from '../services/api'
 
 const UserProfile = () => {
   const { userId } = useParams()
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [showSuspendModal, setShowSuspendModal] = useState(false)
   const [showActivateModal, setShowActivateModal] = useState(false)
 
   useEffect(() => {
-    // Get user status and wallet updates from localStorage
-    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    const walletUpdates = JSON.parse(localStorage.getItem('walletBalanceUpdates') || '{}')
-    const customUsers = JSON.parse(localStorage.getItem('customUsers') || '[]')
-    
-    // Search in both mockUsers and customUsers
-    let foundUser = mockUsers.find(u => u.id === parseInt(userId))
-    
-    // If not found in mockUsers, search in customUsers
-    if (!foundUser) {
-      foundUser = customUsers.find(u => u.id === parseInt(userId))
-    }
-    
-    if (foundUser) {
-      // Apply any updates from localStorage
-      const updatedUser = {
-        ...foundUser,
-        status: userStatusUpdates[userId] || foundUser.status,
-        walletBalance: walletUpdates[userId] !== undefined ? walletUpdates[userId] : foundUser.walletBalance
+    fetchUser()
+  }, [userId])
+
+  const fetchUser = async () => {
+    try {
+      setIsLoading(true)
+      const response = await usersAPI.getById(userId)
+      if (response.success && response.data?.user) {
+        const userData = response.data.user
+        // Map backend user to frontend format
+        setUser({
+          id: userData._id || userData.id,
+          _id: userData._id,
+          name: userData.name || 'Unknown',
+          email: userData.email || '',
+          mobile: userData.mobileNo || '',
+          mobileNo: userData.mobileNo || '',
+          gender: userData.gender || '',
+          age: userData.ageGroup ? parseInt(userData.ageGroup.split('-')[0]) || 25 : 25,
+          ageGroup: userData.ageGroup || '',
+          location: userData.location || 'N/A',
+          registrationDate: userData.createdAt ? new Date(userData.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          status: userData.isActive === false ? 'suspended' : 'active',
+          isActive: userData.isActive !== false,
+          walletBalance: userData.walletBalance || 0,
+          minutesBalance: userData.minutesBalance || 0,
+          totalConversations: userData.conversationSessions?.length || 0,
+          lastActive: userData.updatedAt ? new Date(userData.updatedAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          preferences: userData.preferences || {},
+          memorySummary: userData.memorySummary || '',
+        })
+      } else {
+        navigate('/admin/users')
       }
-      setUser(updatedUser)
-    } else {
+    } catch (error) {
+      console.error('Error fetching user:', error)
+      alert('Failed to load user. Redirecting...')
       navigate('/admin/users')
+    } finally {
+      setIsLoading(false)
     }
-  }, [userId, navigate])
-
-  const handleSuspend = () => {
-    // Update local state
-    setUser(prev => ({ ...prev, status: 'suspended' }))
-    
-    // Persist to localStorage
-    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    userStatusUpdates[userId] = 'suspended'
-    localStorage.setItem('userStatusUpdates', JSON.stringify(userStatusUpdates))
-    
-    setShowSuspendModal(false)
-    
-    // Show success message
-    setTimeout(() => {
-      alert('User account has been suspended successfully')
-    }, 100)
   }
 
-  const handleActivate = () => {
-    // Update local state
-    setUser(prev => ({ ...prev, status: 'active' }))
-    
-    // Persist to localStorage
-    const userStatusUpdates = JSON.parse(localStorage.getItem('userStatusUpdates') || '{}')
-    userStatusUpdates[userId] = 'active'
-    localStorage.setItem('userStatusUpdates', JSON.stringify(userStatusUpdates))
-    
-    setShowActivateModal(false)
-    
-    // Show success message
-    setTimeout(() => {
-      alert('User account has been activated successfully')
-    }, 100)
+  const handleSuspend = async () => {
+    try {
+      const response = await usersAPI.suspend(userId)
+      if (response.success) {
+        setUser(prev => ({ ...prev, status: 'suspended', isActive: false }))
+        setShowSuspendModal(false)
+        alert('User account has been suspended successfully')
+      } else {
+        alert(response.message || 'Failed to suspend user')
+      }
+    } catch (error) {
+      console.error('Error suspending user:', error)
+      alert(error.response?.data?.message || 'Failed to suspend user. Please try again.')
+    }
   }
 
-  if (!user) {
+  const handleActivate = async () => {
+    try {
+      const response = await usersAPI.activate(userId)
+      if (response.success) {
+        setUser(prev => ({ ...prev, status: 'active', isActive: true }))
+        setShowActivateModal(false)
+        alert('User account has been activated successfully')
+      } else {
+        alert(response.message || 'Failed to activate user')
+      }
+    } catch (error) {
+      console.error('Error activating user:', error)
+      alert(error.response?.data?.message || 'Failed to activate user. Please try again.')
+    }
+  }
+
+  if (isLoading || !user) {
     return (
       <DashboardLayout>
         <div className="text-center py-12">
-          <p className="text-gray-500">Loading...</p>
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <p className="mt-2 text-gray-500">Loading user profile...</p>
         </div>
       </DashboardLayout>
     )

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Eye, EyeOff, Lock, Shield } from 'lucide-react'
+import { adminAuthAPI } from '../services/api'
 
 const AdminLoginNew = () => {
   const navigate = useNavigate()
@@ -59,28 +60,22 @@ const AdminLoginNew = () => {
     setIsLoading(true)
     
     try {
-      const ADMIN_EMAIL = 'applore@gmail.com'
-      // Check if password has been changed in localStorage, otherwise use default
-      const ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'applore123'
+      const response = await adminAuthAPI.login(formData.email, formData.password)
       
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      if (formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD) {
-        localStorage.setItem('adminToken', 'demo-token-123')
+      if (response.success && response.data?.token) {
+        localStorage.setItem('adminToken', response.data.token)
         localStorage.setItem('adminEmail', formData.email)
-        // Store the default password if not already set
-        if (!localStorage.getItem('adminPassword')) {
-          localStorage.setItem('adminPassword', 'applore123')
-        }
+        localStorage.setItem('adminData', JSON.stringify(response.data.admin || {}))
         navigate('/admin/dashboard')
       } else {
         setErrors({
-          submit: 'Invalid email or password. Please try again.'
+          submit: response.message || 'Invalid email or password. Please try again.'
         })
       }
     } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please check your credentials.'
       setErrors({
-        submit: error.message || 'Login failed. Please check your credentials.'
+        submit: errorMessage
       })
     } finally {
       setIsLoading(false)
